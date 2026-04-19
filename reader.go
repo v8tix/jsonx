@@ -1,7 +1,6 @@
 package jsonx
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,9 +13,13 @@ const snippetWindow = 20
 
 // ReadJSONAs decodes r into T and returns the typed value.
 //
-// The body is buffered once in memory to enable rich error context. For very
-// large responses wrap r with http.MaxBytesReader before calling ReadJSONAs;
-// exceeding the limit returns ErrBodySizeLimit.
+// This is a strict convenience wrapper around Decoder[T]().From(r).
+// For configurable behaviour (e.g. allowing unknown fields or decoding from
+// []byte) use the Decoder builder directly:
+//
+//	jsonx.Decoder[T]().From(r)
+//	jsonx.Decoder[T]().FromBytes(data)
+//	jsonx.Decoder[T]().Lenient().From(r)
 //
 // Strict semantics:
 //   - Unknown fields  → ErrBodyUnknownKey
@@ -31,27 +34,7 @@ const snippetWindow = 20
 //	val, err := jsonx.ReadJSONAs[MyType](r)
 //	if errors.Is(err, jsonx.ErrBadlyJSON) { ... }
 func ReadJSONAs[T any](r io.Reader) (T, error) {
-	var zero T
-
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return zero, err
-	}
-
-	var dst T
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-
-	if err := dec.Decode(&dst); err != nil {
-		return zero, enrichError(data, err)
-	}
-
-	// Reject trailing content: a second Decode must return io.EOF.
-	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return zero, ErrBodyValue
-	}
-
-	return dst, nil
+	return Decoder[T]().From(r)
 }
 
 // enrichError converts a raw json decode error into a richly-annotated error
