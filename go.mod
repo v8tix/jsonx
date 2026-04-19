@@ -1,4 +1,4 @@
-module github.com/v8tix/jsonx
+module github.com/v8tix/jsonx // v1.0.1
 
 go 1.26
 
